@@ -12,7 +12,7 @@
   > npm install  
   > npm run build 
   
-  > npm install
+  > npm install   
   > npm start 
 
 **open browser http://localhost:8080**
