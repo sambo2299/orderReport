@@ -1,12 +1,13 @@
 const config = require('../../config');
 const logger = require(`${config.rootdir}/server/system/logger`);
 
-const XLSX = require('xlsx');
+// const XLSX = require('xlsx');
 const moment = require('moment');
-const fse = require('fs-extra');
-const path = require('path');
+// const fse = require('fs-extra');
+// const path = require('path');
 
 const dbQuery = require('../../system/database');
+const helperLib = require('../../lib/helper/helper')
 const fileUploadHelperLib = require('../../lib/helper/fileUploadLib')
 
 const columnsReference = {
@@ -43,7 +44,7 @@ module.exports.getAllOrder = async (req, res) => {
   try {
     if(startDate) {
       if(moment(startDate).isValid()) {
-        condition = `where date > '${moment(startDate).format("yy-MM-DD")}'`;
+        condition = `where date >= '${moment(startDate).format("yy-MM-DD")}'`;
       } else {
         return res.status('from date is not in valid format!!!');
       }
@@ -51,7 +52,7 @@ module.exports.getAllOrder = async (req, res) => {
     if(endDate) {
       if(moment(endDate).isValid()) {
         console.log(condition)
-        condition =   `${(condition.length > 0 ? condition + ' and': 'where')} date < '${moment(endDate).format("yy-MM-DD")}'`;
+        condition =   `${(condition.length > 0 ? condition + ' and': 'where')} date <= '${moment(endDate).format("yy-MM-DD")}'`;
       } else {
         return res.status('to date is not in valid format!!!');
       }
@@ -77,40 +78,36 @@ module.exports.getAllOrder = async (req, res) => {
   //   datas
   // });
   // res.send(await insertOrders([]));/
-  if(!download) return res.status(200).send({
-    message: 'orders fetched',
-    datas
-  })
+  if(!download)  {
+     let totalQuery = `SELECT COUNT(*) as count FROM orders`;
+     if(condition.length > 0) {
+       totalQuery = `${totalQuery} ${condition}`;       
+     }
+     console.log(totalQuery)
+     const totalresp = await dbQuery.dbquery(totalQuery);
+    //  console.log(total[0]);
+     let count;
+     if(totalresp){
+       count = totalresp[0][0].count;
+     }
+    return res.status(200).send({
+      message: 'orders fetched',
+      count,
+      datas,
+    })
+
+  }
   try {
-    const filecreated = await createxlsx(res, datas);
+    const filecreated = await helperLib.createxlsx(datas);
     if(!filecreated) throw 'file not created!!!';
-    res.download(filecreated);
+    return helperLib.sendFile(res, filecreated); 
   } catch(ex) {
     logger.error(ex);
     res.status(500).send({
       message: 'error at file export'
     })
-  }
-  
+  }  
 }
-
-const createxlsx = async(res, data) => {
-  try {
-    const wb = XLSX.utils.book_new();
-    const ws_name = 'data';
-    const ws_data = data;  
-    const ws = XLSX.utils.json_to_sheet(ws_data);
-    const resp = XLSX.utils.book_append_sheet(wb,ws, ws_name);
-    const filename = `${new Date().getTime()}.xlsx`;
-    const filePath = `${config.rootdir}/export`;
-    fse.ensureDirSync(filePath);
-    XLSX.writeFile(wb, path.resolve(filePath, filename));
-    return path.resolve(filePath, filename);
-  } catch(ex) {
-    logger.error(ex);
-    return null;
-  }
-};
 
 const insertOrders = async (orders) => {
   const values = [
@@ -137,15 +134,16 @@ module.exports.importOrder = async (req, res) => {
     } else {
       // console.log(req.file)
       try {
-        workbook = XLSX.readFile(req.file.path);
-        // console.log(workbook.SheetNames)
-        if (workbook.SheetNames.indexOf('Data') < 0) throw 'xlsx dont have correct sheet';
-        const excelProducts = XLSX.utils.sheet_to_json(workbook.Sheets['Data'], {
-          raw: false,
-          header: 1,
-          dateNF: 'yyyy-mm-dd',
-          blankrows: false,
-        })
+        // workbook = XLSX.readFile(req.file.path);
+        // // console.log(workbook.SheetNames)
+        // if (workbook.SheetNames.indexOf('Data') < 0) throw 'xlsx dont have correct sheet';
+        // const excelProducts = XLSX.utils.sheet_to_json(workbook.Sheets['Data'], {
+        //   raw: false,
+        //   header: 1,
+        //   dateNF: 'yyyy-mm-dd',
+        //   blankrows: false,
+        // })
+        const excelProducts = await helperLib.readxlsx(req.file.path);
         const firstrow = excelProducts[0];
         excelProducts.shift();
         const fields = '';
@@ -161,7 +159,7 @@ module.exports.importOrder = async (req, res) => {
         logger.error(ex)
         return res.status(500).send(ex);
       }
-      res.status(500).send({
+      res.status(200).send({
 
         message: "order imported"
       });

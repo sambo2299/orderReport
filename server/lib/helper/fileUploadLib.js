@@ -33,10 +33,10 @@ const storage = multer.diskStorage({
 module.exports.upload = multer({
   storage,
   limits: {
-    fileSize: 25 * 1024 * 1024 // 15 MB limit
+    fileSize: 20 * 1024 * 1024 // 20 MB limit
   },
   fileFilter: (req, file, cb) => {
-    console.log('Uploading font...==>', file.mimetype);
+    console.log('Uploading==>', file.mimetype);
     if(allowedMimes.indexOf(file.mimetype) > -1) {
       return cb(null, file);
     }
