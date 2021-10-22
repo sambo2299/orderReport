@@ -31,7 +31,7 @@ module.exports.readxlsx = async(path) => {
 module.exports.createxlsx = async(data) => {
   try {
     const wb = XLSX.utils.book_new();
-    const ws_name = 'data';
+    const ws_name = 'Data';
     const ws_data = data;  
     const ws = XLSX.utils.json_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb,ws, ws_name);
